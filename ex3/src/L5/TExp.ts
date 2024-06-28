@@ -127,12 +127,13 @@ const flattenSortUnion = (tes: TExp[]): TExp[] =>
 
 // In case there is only one component - remove the union wrapper.
 // (union) = never
-const normalizeUnion = (ute: UnionTExp): TExp =>
-    isEmpty(ute.components) ? makeNeverTExp() : 
+const normalizeUnion = (ute: UnionTExp): TExp => {
+    const normalized = isEmpty(ute.components) ? makeNeverTExp() : 
     includes(makeAnyTExp(), ute.components) ? makeAnyTExp() : 
     (ute.components.length === 1) ? ute.components[0] :
     ute;
-
+    return dnf(normalized);
+};
 // Flatten all union components into the result
 // and remove duplicates
 // [number, union(number, string)] => [number, string]
