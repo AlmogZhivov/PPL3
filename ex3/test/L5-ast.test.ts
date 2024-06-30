@@ -254,7 +254,7 @@ describe('L52 parse Type predicates', () => {
     it('Basic type predicate test', () => {
         const dt1 = `
         (L5 
-            (define (number_pred : (any -> is number)) (lambda ((x : any)) : is number (number? x))
+            (define (number_pred : (any -> is? number)) (lambda ((x : any)) : is? number (number? x))
         )
         `;
         testProgram(dt1);

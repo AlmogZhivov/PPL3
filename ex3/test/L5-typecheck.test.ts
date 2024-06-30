@@ -349,8 +349,9 @@ describe('L52 Type Checker', () => {
     describe('TypePred 0', () => {
         const p0 = `
         (L5
-            (define (a_is_n : (any -> is number))
-                (lambda ((x : any)) : is number (number? x)))
+            (define (a_is_n : (any -> is? number))
+                (lambda ((x : any)) : is? number (number? x)))
+            (define (x : (union string number)) 1)
             (if (a_is_n x)
                 x
                 1)
