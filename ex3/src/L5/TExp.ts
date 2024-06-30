@@ -32,7 +32,7 @@
 ;; [union [T1 -> T1] [Empty -> T1]]
 */
 
-import { all, append, chain, concat, equals, map, sort, uniq, zip, filter, includes } from "ramda";
+import { all, append, chain, concat, equals, map, sort, uniq, zip, filter, includes, is } from "ramda";
 import { Sexp } from "s-expression";
 import { List, isEmpty, isNonEmptyList } from "../shared/list";
 import { isArray, isBoolean, isString } from '../shared/type-predicates';
@@ -152,16 +152,69 @@ const flattenIntersection = (tes: TExp[]): TExp[] =>
         [tes[0], ...flattenIntersection(tes.slice(1))] :
     [];
 
-const normalizeIntersection = (ite: InterTExp): TExp => {
+/*
+    const normalizeIntersection = (ite: InterTExp): TExp => {
+        const components = ite.components.filter(t => !isAnyTExp(t));
+        if (components.length === 0) return makeAnyTExp();
+        if (includes(makeNeverTExp(), components)) return makeNeverTExp();
+        return components.length === 1 ? dnf(components[0]) : dnf(makeInterTExp(components));
+    };
+*/
+
+    // OK
+    const normalizeIntersection = (ite: InterTExp): TExp => {
+        const flattened = flattenSortIntersection(ite.components);
     const normalized = isEmpty(ite.components) ? makeAnyTExp() : 
             includes(makeNeverTExp(), ite.components) ? makeNeverTExp() : 
                 (ite.components.length === 1) ? ite.components[0] : 
                     ite;
+    const withoutAny = flattened.filter(t => !isAnyTExp(t));
     
+    // If the resulting list is empty, return `any`
+    if (isEmpty(withoutAny)) {
+        return makeAnyTExp();
+        }
+                
+    // If the resulting list has only one component, return it directly
+    if (withoutAny.length === 1) {
+      return withoutAny[0];
+    }
     return dnf(normalized);
     };
 
+/*
+const normalizeIntersection = (ite: InterTExp): TExp => {
+    // Flatten and sort the components
+    const flattened = flattenSortIntersection(ite.components);
+    
+    // If there are no components, the result is `any`
+    if (isEmpty(flattened)) {
+        return makeAnyTExp();
+    }
+    
+    // If `never` is one of the components, the result is `never`
+    if (includes(makeNeverTExp(), flattened)) {
+        return makeNeverTExp();
+    }
+    
+    // If `any` is one of the components, remove it
+    const withoutAny = flattened.filter(t => !isAnyTExp(t));
+    
+    // If the resulting list is empty, return `any`
+    if (isEmpty(withoutAny)) {
+        return makeAnyTExp();
+    }
+    
+    // If there is only one component, return it directly
+    if (withoutAny.length === 1) {
+        return withoutAny[0];
+    }
+    
+    // Otherwise, return the normalized intersection
+    return makeInterTExp(withoutAny);
+};*/
 // L52
+/*
 export const makeDiffTExp = (te1: TExp, te2: TExp): TExp => {
     const te1Prime = tvarDeref(te1);
     const te2Prime = tvarDeref(te2);
@@ -183,6 +236,36 @@ export const makeDiffTExp = (te1: TExp, te2: TExp): TExp => {
 
     return isSubType(te1Prime, te2Prime) ? makeNeverTExp() : te1Prime;
 };
+*/
+export const makeDiffTExp = (te1: TExp, te2: TExp): TExp => {
+    const te1Prime = tvarDeref(te1);
+    const te2Prime = tvarDeref(te2);
+    // If te1 and te2 are the same, the difference is empty, represented by never.
+    if (equals(te1Prime, te2Prime)) return makeNeverTExp();
+    // If te1 is any, and te2 is also any, the difference is never.
+    // If te1 is any, and te2 is not any, the difference is any.
+    if (isAnyTExp(te1Prime)) return isAnyTExp(te2Prime) ? makeNeverTExp() : makeAnyTExp();
+    // If te2 is never, the difference is just te1 because removing never has no effect.
+    if (isNeverTExp(te2Prime)) return te1Prime;
+    if (isInterTExp(te2Prime)) {
+        const intersectedTypes = te2Prime.components.map(tvarDeref);
+        if (!intersectedTypes.includes(makeNeverTExp()) && intersectedTypes.length >= 2 &&
+            !isSubType(intersectedTypes[0], intersectedTypes[1]) &&
+            !isSubType(intersectedTypes[1], intersectedTypes[0])) {
+            return te1Prime; // If te2 components are not subtypes of each other, return te1 immediately
+        }
+    }
+    // If te1 is a union type, filter out components that are subtypes of te2 and return the resulting union.
+    if (isUnionTExp(te1Prime)) return makeUnionTExp(te1Prime.components.filter(t => !isSubType(t, te2Prime)));
+    // If te1 is an intersection type, filter out components that are subtypes of te2 and return the resulting intersection.
+    if (isInterTExp(te1Prime)) return makeInterTExp(te1Prime.components.filter(t => !isSubType(t, te2Prime)));
+    //If te2 is a union type, create an intersection of te1 and the difference of each component of te2 with te1.
+    if (isUnionTExp(te2Prime)) return makeInterTExp([te1Prime, makeDiffTExp(te2Prime, te1Prime)]);
+    //If te2 is an intersection type, create a union of the differences between te1 and each component of te2.
+    if (isInterTExp(te2Prime)) return makeUnionTExp(te2Prime.components.map(t => makeDiffTExp(te1Prime, t)));
+
+    return isSubType(te1Prime, te2Prime) ? makeNeverTExp() : te1Prime;
+};
 export const equalsAtomicTExp = (te1: AtomicTExp, te2: AtomicTExp): boolean =>
     ((isNumTExp(te1) && isNumTExp(te2)) ||
      (isBoolTExp(te1) && isBoolTExp(te2)) ||
@@ -190,11 +273,11 @@ export const equalsAtomicTExp = (te1: AtomicTExp, te2: AtomicTExp): boolean =>
      (isVoidTExp(te1) && isVoidTExp(te2)) ||
      (isAnyTExp(te1) && isAnyTExp(te2)) ||
      (isNeverTExp(te1) && isNeverTExp(te2)));
-    
+/*
 const isSubTypeHelper = (te1: TExp, te2: TExp): boolean =>
     equals(te1, te2) ||
-    isAnyTExp(te1) ||
-    isNeverTExp(te2) ||
+    isAnyTExp(te2) || // te1 is a subtype of te2 if te2 is `any`
+    isNeverTExp(te1) || // `never` is a subtype of any type
     (isUnionTExp(te1) && all((t1: TExp) => isSubType(t1, te2), te1.components)) ||
     (isUnionTExp(te2) && isNonTupleTExp(te1) && any((t2: TExp) => isSubType(te1, t2), te2.components)) ||
     (isInterTExp(te1) && all((t1: TExp) => isSubType(t1, te2), te1.components)) ||
@@ -203,7 +286,32 @@ const isSubTypeHelper = (te1: TExp, te2: TExp): boolean =>
     (isAtomicTExp(te1) && isAtomicTExp(te2) && equalsAtomicTExp(te1, te2)) ||
     (isProcTExp(te1) && isProcTExp(te2) && isSubTypeProc(te1, te2)) ||
     (isTupleTExp(te1) && isTupleTExp(te2) && isSubTypeTuple(te1, te2));
+ */
+    const isSubTypeHelper = (te1: TExp, te2: TExp): boolean => {
+    
+        //console.log('Checking subtype relationship:');
+    //console.log('te1:', te1);
+    //console.log('te2:', te2);
 
+    const normalizedTe1 = isInterTExp(te1) ? normalizeIntersection(te1) : te1;
+    const normalizedTe2 = isUnionTExp(te2) ? normalizeUnion(te2) : te2;
+
+    //console.log('Normalized te1:', normalizedTe1);
+    //console.log('Normalized te2:', normalizedTe2);
+    
+    
+        return equals(normalizedTe1, normalizedTe2) ||
+            isAnyTExp(normalizedTe2) || // te1 is a subtype of te2 if te2 is `any`
+            isNeverTExp(normalizedTe1) || // `never` is a subtype of any type
+            (isUnionTExp(normalizedTe1) && all((t1: TExp) => isSubType(t1, normalizedTe2), normalizedTe1.components)) ||
+            (isUnionTExp(normalizedTe2) && isNonTupleTExp(normalizedTe1) && any((t2: TExp) => isSubType(normalizedTe1, t2), normalizedTe2.components)) ||
+            (isInterTExp(normalizedTe1) && all((t1: TExp) => isSubType(t1, normalizedTe2), normalizedTe1.components)) ||
+            (isInterTExp(normalizedTe2) && isNonTupleTExp(normalizedTe1) && any((t2: TExp) => isSubType(normalizedTe1, t2), normalizedTe2.components)) ||
+            (isTVar(normalizedTe1) && isTVar(normalizedTe2) && eqTVar(normalizedTe1, normalizedTe2)) ||
+            (isAtomicTExp(normalizedTe1) && isAtomicTExp(normalizedTe2) && equalsAtomicTExp(normalizedTe1, normalizedTe2)) ||
+            (isProcTExp(normalizedTe1) && isProcTExp(normalizedTe2) && isSubTypeProc(normalizedTe1, normalizedTe2)) ||
+            (isTupleTExp(normalizedTe1) && isTupleTExp(normalizedTe2) && isSubTypeTuple(normalizedTe1, normalizedTe2));
+    };
 const any = <T>(pred: (t: T) => boolean, arr: T[]): boolean => arr.some(pred);
 const isSubTypeProc = (te1: ProcTExp, te2: ProcTExp): boolean =>
     (te1.paramTEs.length === te2.paramTEs.length) &&
