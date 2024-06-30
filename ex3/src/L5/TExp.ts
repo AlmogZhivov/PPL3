@@ -249,9 +249,7 @@ export const makeDiffTExp = (te1: TExp, te2: TExp): TExp => {
     if (isNeverTExp(te2Prime)) return te1Prime;
     if (isInterTExp(te2Prime)) {
         const intersectedTypes = te2Prime.components.map(tvarDeref);
-        if (!intersectedTypes.includes(makeNeverTExp()) && intersectedTypes.length >= 2 &&
-            !isSubType(intersectedTypes[0], intersectedTypes[1]) &&
-            !isSubType(intersectedTypes[1], intersectedTypes[0])) {
+        if (!intersectedTypes.includes(makeNeverTExp()) && hasNonSubtypePair(intersectedTypes)) {
             return te1Prime; // If te2 components are not subtypes of each other, return te1 immediately
         }
     }
@@ -266,6 +264,15 @@ export const makeDiffTExp = (te1: TExp, te2: TExp): TExp => {
 
     return isSubType(te1Prime, te2Prime) ? makeNeverTExp() : te1Prime;
 };
+
+const hasNonSubtypePair = (components: TExp[]): boolean => {
+    return components.some((t1, i) =>
+        components.slice(i + 1).some(t2 =>
+            !isSubType(t1, t2) && !isSubType(t2, t1)
+        )
+    );
+};
+
 export const equalsAtomicTExp = (te1: AtomicTExp, te2: AtomicTExp): boolean =>
     ((isNumTExp(te1) && isNumTExp(te2)) ||
      (isBoolTExp(te1) && isBoolTExp(te2)) ||
