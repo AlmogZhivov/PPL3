@@ -3,7 +3,7 @@ import { isNumExp, isBoolExp, isVarRef, isPrimOp, isProgram, isDefineExp, isVarD
          parseL5Exp, unparse, Exp, parseL5, Program } from "../src/L5/L5-ast";
 import { Result, bind, isOkT, makeOk, mapv, isFailure } from "../src/shared/result";
 import { parse as parseSexp } from "../src/shared/parser";
-import { TExp, isNumTExp, isProcTExp, isUnionTExp, parseTExp, isAnyTExp, isNeverTExp, isInterTExp, unparseTExp } from "../src/L5/TExp";
+import { TExp, isNumTExp, isProcTExp, isUnionTExp, parseTExp, isAnyTExp, isNeverTExp, isInterTExp, unparseTExp, makeDiffTExp, parseTE, makeAnyTExp, isSubType } from "../src/L5/TExp";
 
 const p = (x: string): Result<Exp> => bind(parseSexp(x), parseL5Exp);
 const pt = (x: string): Result<TExp> => bind(parseSexp(x), (p) => parseTExp(p));
@@ -196,6 +196,7 @@ describe('L51 parseTExp Union Parser', () => {
     });
 });
 
+// L52 Tests Begin
 describe('L52 parse TExp extended and complex types', () => {
     it('Parse basic any expression', () => {
         expect(pt("any")).toSatisfy(isOkT(isAnyTExp));
@@ -260,3 +261,5 @@ describe('L52 parse Type predicates', () => {
         testProgram(dt1);
     });
 });
+
+// L52 Tests End
