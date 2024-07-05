@@ -49,8 +49,9 @@ export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp | AnyTExp | Nev
 export const isAtomicTExp = (x: any): x is AtomicTExp =>
     isNumTExp(x) || isBoolTExp(x) || isStrTExp(x) || isVoidTExp(x) || isAnyTExp(x) || isNeverTExp(x);
 
-export type CompoundTExp = ProcTExp | TupleTExp | UnionTExp | InterTExp;
-export const isCompoundTExp = (x: any): x is CompoundTExp => isProcTExp(x) || isTupleTExp(x) || isUnionTExp(x) || isInterTExp(x);
+export type CompoundTExp = ProcTExp | TupleTExp | UnionTExp | InterTExp | PredTExp;
+export const isCompoundTExp = (x: any): x is CompoundTExp => isProcTExp(x) || isTupleTExp(x) || 
+    isUnionTExp(x) || isInterTExp(x) || isPredTExp(x);
 
 export type NonTupleTExp = AtomicTExp | ProcTExp | TVar | UnionTExp;
 export const isNonTupleTExp = (x: any): x is NonTupleTExp =>
@@ -81,6 +82,11 @@ export const isAnyTExp = (x: any): x is AnyTExp => x.tag === "AnyTExp";
 export type NeverTExp = { tag: "NeverTExp" };
 export const makeNeverTExp = (): NeverTExp => ({ tag: "NeverTExp"});
 export const isNeverTExp = (x: any): x is NeverTExp => x.tag === "NeverTExp";
+
+// AVIAD: added PredExp
+export type PredTExp = {tag: "PredTExp", type:TExp};
+export const isPredTExp = (x: any): x is PredTExp => x.tag === "PredTExp";
+export const makePredTExp = (pred: TExp): PredTExp => ({ tag: "PredTExp", type:pred});
 
 // proc-te(param-tes: list(te), return-te: te)
 export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp[]; returnTE: TExp; };
@@ -524,6 +530,7 @@ export const parseTExp = (texp: Sexp): Result<TExp> =>
 const parseCompoundTExp = (texps: Sexp[]): Result<TExp> =>
     (texps[0] === "union") ? parseUnionTExp(texps) :
     (texps[0] === "inter") ? parseInterTExp(texps) :
+    (texps[0] === "is") ? parsePredTExp(texps) : 
     parseProcTExp(texps);
 
 // Expect (union texp1 ...)
@@ -535,21 +542,31 @@ const parseUnionTExp = (texps: Sexp[]): Result<TExp> =>
 const parseInterTExp = (texps: Sexp[]): Result<TExp> =>
     mapv(mapResult(parseTExp, texps.slice(1)),
          (tes: TExp[]) => makeInterTExp(tes));
+
+
+
 /*
 ;; expected structure: (<params> -> <returnte>)
 ;; expected exactly one -> in the list
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
-const parseProcTExp = (texps: Sexp[]): Result<ProcTExp> => {
-    const pos = texps.indexOf('->');
+const parseProcTExp = (texps: Sexp[]): Result<ProcTExp | PredTExp> => {
+    const pos : number = texps.indexOf('->');
     return (pos === -1)  ? makeFailure(`Procedure type expression without -> - ${format(texps)}`) :
            (pos === 0) ? makeFailure(`No param types in proc texp - ${format(texps)}`) :
            (pos === texps.length - 1) ? makeFailure(`No return type in proc texp - ${format(texps)}`) :
            (texps.slice(pos + 1).indexOf('->') > -1) ? makeFailure(`Only one -> allowed in a procexp - ${format(texps)}`) :
            bind(parseTupleTExp(texps.slice(0, pos)), (args: TExp[]) =>
                mapv(parseTExp(texps[pos + 1]), (returnTE: TExp) =>
-                    makeProcTExp(args, returnTE)));
+                    makeProcTExp(args, returnTE)))
 };
+
+
+const parsePredTExp = (texps: Sexp[]) : Result<TExp> => 
+    (texps.length != 2) ? makeFailure("Error: incomptable number of arguments!") : 
+    mapv(parseTExp(texps[1]), (t : TExp) => makePredTExp(t))
+
+
 
 /*
 ;; Expected structure: <te1> [* <te2> ... * <ten>]?
@@ -603,6 +620,7 @@ export const unparseTExp = (te: TExp): Result<string> => {
         isEmptyTupleTExp(x) ? makeOk("Empty") :
         isNonEmptyTupleTExp(x) ? unparseTuple(x.TEs) :
         x === undefined ? makeFailure("Undefined TVar") :
+        isPredTExp(x) ? mapv(unparseTExp(x.type), (s2: string) =>'is?' + s2) :
         x;
 
     const unparsed = up(te);

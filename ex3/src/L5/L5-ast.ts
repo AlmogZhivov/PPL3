@@ -62,6 +62,7 @@ export type Parsed = Exp | Program;
 export type Exp = DefineExp | CExp;
 export const isExp = (x: any): x is Exp => isDefineExp(x) || isCExp(x);
 
+
 export type CExp =  AtomicExp | CompoundExp;
 export const isCExp = (x: any): x is CExp => isAtomicExp(x) || isCompoundExp(x);
 
@@ -69,6 +70,7 @@ export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
 export const isAtomicExp = (x: any): x is AtomicExp =>
     isNumExp(x) || isBoolExp(x) || isStrExp(x) ||
     isPrimOp(x) || isVarRef(x);
+
 
 export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | LetrecExp | SetExp;
 export const isCompoundExp = (x: any): x is CompoundExp =>
@@ -155,6 +157,9 @@ export type SetExp = {tag: "SetExp"; var: VarRef; val: CExp; }
 export const makeSetExp = (v: VarRef, val: CExp): SetExp =>
     ({tag: "SetExp", var: v, val: val});
 export const isSetExp = (x: any): x is SetExp => x.tag === "SetExp";
+
+
+
 
 // To help parser - define a type for reserved key words.
 export type SpecialFormKeyword = "lambda" | "let" | "letrec" | "if" | "set!" | "quote";
@@ -253,8 +258,10 @@ const parseIfExp = (params: Sexp[]): Result<IfExp> =>
 const parseProcExp = (vars: Sexp, rest: Sexp[]): Result<ProcExp> => {
     if (isArray(vars)) {
         const args = mapResult(parseVarDecl, vars);
-        const body = mapResult(parseL5CExp, rest[0] === ":" ? rest.slice(2) : rest);
-        const returnTE = rest[0] === ":" ? parseTExp(rest[1]) : makeOk(makeFreshTVar());
+        const bodyPosition = rest[0] != ":" ? 0 : rest[1] != "is?" ? 2 : 3;
+        const returnTE = bodyPosition == 0 ? makeOk(makeFreshTVar()) :
+            bodyPosition == 2 ? parseTExp(rest[1]) : parseTExp(rest.slice(0, bodyPosition));
+        const body = mapResult(parseL5CExp, rest.slice(bodyPosition)); // need to check for fixing
         return bind(args, (args: VarDecl[]) =>
                     bind(body, (body: CExp[]) =>
                         mapv(returnTE, (returnTE: TExp) =>

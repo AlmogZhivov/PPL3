@@ -4,7 +4,9 @@ import { equals, map, zipWith } from 'ramda';
 import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNumExp,
          isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parseL5Exp, unparse,
          AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, NumExp,
-         Parsed, PrimOp, ProcExp, Program, StrExp, parseL5Program } from "./L5-ast";
+         Parsed, PrimOp, ProcExp, Program, StrExp, parseL5Program, 
+         isSetExp,
+         isLitExp} from "./L5-ast";
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp, makeUnionTExp,
@@ -140,9 +142,14 @@ export const typeofIfNormal = (ifExp: IfExp, tenv: TEnv): Result<TExp> => {
                 constraint2);
 };
 
+// TODO: decide what the return type
+// AVIAD : I think the return type should be typePredApp
 // L52 Structured methods
-const isTypePredApp = (e: Exp, tenv: TEnv): Result<{/* Add parameters */}> => {
+const isTypePredApp = (e: Exp, tenv: TEnv): Result<> => {
+    !isAppExp(e) ? makeFailure("not app exp!") :
+    e.rator.
 }
+
 
 export const typeofIf = (ifExp: IfExp, tenv: TEnv): Result<TExp> =>
     either(
