@@ -530,7 +530,7 @@ export const parseTExp = (texp: Sexp): Result<TExp> =>
 const parseCompoundTExp = (texps: Sexp[]): Result<TExp> =>
     (texps[0] === "union") ? parseUnionTExp(texps) :
     (texps[0] === "inter") ? parseInterTExp(texps) :
-    (texps[0] === "is") ? parsePredTExp(texps) : 
+    (texps[0] === "is?") ? parsePredTExp(texps) : 
     parseProcTExp(texps);
 
 // Expect (union texp1 ...)

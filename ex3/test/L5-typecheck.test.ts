@@ -183,7 +183,7 @@ describe('L5 Type Checker', () => {
     });
 });
 
-describe('L5 Typecheck program with define', () => {
+it('L5 Typecheck program with define', () => {
     const p1 = `(L5
      (define (f : (number -> number)) (lambda ((x : number)) : number (* x x)))
      (f 2)
@@ -191,7 +191,7 @@ describe('L5 Typecheck program with define', () => {
      expect(L5typeofProgram(p1)).toEqual(makeOk("number"));
  });
 
-describe('L5 Test checkCompatibleType with unions', () => {
+it('L5 Test checkCompatibleType with unions', () => {
     const te1 = parseTE("(union boolean number)");
     const te2 = parseTE("(union boolean string)");
     const te3 = parseTE("(union boolean (union number string))");
@@ -220,7 +220,7 @@ describe('L5 Test checkCompatibleType with unions', () => {
 
 });
 
-describe('L5 Test makeUnion', () => {
+it('L5 Test makeUnion', () => {
     // makeUnion( number, boolean) -> union((number, boolean))
     const t1 = makeUnion(makeNumTExp(), makeBoolTExp());
     expect(t1).toSatisfy(isUnionTExp);
@@ -269,7 +269,7 @@ describe('L5 Test makeUnion', () => {
 });
 
 // TODO L51 Test typeOfIf with union in all relevant positions
-describe('L5 Test typeOfIf with union in all relevant positions', () => {
+it('L5 Test typeOfIf with union in all relevant positions', () => {
     // typeOfIf( (if #t 1 #t) ) -> union(boolean, number)
     const t1 = L5typeof("(if #t 1 #t)");
     expect(t1).toEqual(makeOk("(union boolean number)"));
@@ -288,7 +288,7 @@ describe('L5 Test typeOfIf with union in all relevant positions', () => {
 });
 
 // L51 Test checkCompatibleType with unions in arg positions of Procedures
-describe('L5 Test checkCompatibleType with unions in arg positions of Procedures', () => {
+it('L5 Test checkCompatibleType with unions in arg positions of Procedures', () => {
     // L51
     // Implement the test for the examples given in the document of the assignment (3.2.4)
 
@@ -338,7 +338,7 @@ describe('L5 Test checkCompatibleType with unions in arg positions of Procedures
 // L52 Tests Begin
 describe('L52 Type Checker', () => {
     
-    describe('TypePred 0', () => {
+    it('TypePred 0', () => {
         const p0 = `
         (L5
             (define (x : (union string number)) 1)
@@ -347,29 +347,30 @@ describe('L52 Type Checker', () => {
         expect(L5typeofProgram(p0)).toEqual(makeOk("void"));
     });
 
-    describe('TypePred 0', () => {
+    it('TypePred 0', () => {
         const p0 = `
         (L5
             (define (test : ((inter any number) -> number))
-                (lambda (x : (inter any number)) : number x))
+                (lambda ((x : (inter any number))) : number x))
             (test 3)
         )
         `;
         expect(L5typeofProgram(p0)).toEqual(makeOk("number"));
     });
 
-    describe('TypePred 0', () => {
+    it('TypePred 0', () => {
         const p0 = `
         (L5
             (define (test : ((inter any number) -> number))
-                (lambda (x : (inter any number)) : number x))
+                (lambda ((x : (inter any number))) : number x))
             (test "hi")
         )
         `;
+        const test = L5typeofProgram(p0);
         expect(L5typeofProgram(p0)).toEqual(makeFailure("Incompatible types: string and number in (test \"hi\")"));
     });
     
-    describe('TypePred 0', () => {
+    it('TypePred 0', () => {
         const p0 = `
         (L5
             (define (a_is_n : (any -> is? number))
