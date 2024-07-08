@@ -6,11 +6,13 @@ import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNum
          AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, NumExp,
          Parsed, PrimOp, ProcExp, Program, StrExp, parseL5Program, 
          isSetExp,
-         isLitExp} from "./L5-ast";
-import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
+         isLitExp,
+         VarDecl} from "./L5-ast";
+import { applyTEnv, ExtendTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp, makeUnionTExp,
-         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp, isSubType } from "./TExp";
+         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp, isSubType, 
+         isPredTExp} from "./TExp";
 import { isEmpty, allT, first, rest, NonEmptyList, List, isNonEmptyList } from '../shared/list';
 import { Result, makeFailure, bind, makeOk, zipWithResult, either } from '../shared/result';
 import { parse as p } from "../shared/parser";
@@ -143,17 +145,32 @@ export const typeofIfNormal = (ifExp: IfExp, tenv: TEnv): Result<TExp> => {
 };
 
 // TODO: decide what the return type
-// AVIAD : I think the return type should be typePredApp
+// AVIAD : changed e to compount exp
 // L52 Structured methods
-const isTypePredApp = (e: Exp, tenv: TEnv): Result<> => {
-    !isAppExp(e) ? makeFailure("not app exp!") :
-    e.rator.
+const isTypePredApp = (e: Exp, tenv: TEnv): Result<TEnv> => {
+    if (!isAppExp(e))
+        return makeFailure("Error: is not AppExp!");
+
+    const r = e.rands[0]
+    if (!isVarRef(r))
+        return makeFailure("Error: is not type predicate!");
+
+    return bind(typeofApp(e, tenv), (te: TExp) => 
+        isPredTExp(te) ? (makeOk(makeExtendTEnv([r.var], [te.type], tenv))) : 
+        makeFailure(""))
+
 }
 
 
 export const typeofIf = (ifExp: IfExp, tenv: TEnv): Result<TExp> =>
     either(
-        bind (isTypePredApp(ifExp.test, tenv), ({/* Add parameter here */}) => {}),
+        bind (isTypePredApp(ifExp.test, tenv), (env : TEnv) => {
+            const TEthen = typeofExp(ifExp.then, env);
+            const altTE1 = typeofExp(ifExp.alt, tenv);
+            return bind(TEthen, (thenTE:TExp) => 
+             bind(altTE1, (altTE: TExp) =>
+                makeOk(makeUnion(thenTE, altTE))))
+        }),
         makeOk,
         () => typeofIfNormal(ifExp, tenv));
 
@@ -163,12 +180,27 @@ export const typeofIf = (ifExp: IfExp, tenv: TEnv): Result<TExp> =>
 // If   type<body>(extend-tenv(x1=t1,...,xn=tn; tenv)) = t
 // then type<lambda (x1:t1,...,xn:tn) : t exp)>(tenv) = (t1 * ... * tn -> t)
 export const typeofProc = (proc: ProcExp, tenv: TEnv): Result<TExp> => {
+    if (isPredTExp(proc.returnTE))
+        return typeOfPredProc(proc, tenv);
+
     const argsTEs = map((vd) => vd.texp, proc.args);
     const extTEnv = makeExtendTEnv(map((vd) => vd.var, proc.args), argsTEs, tenv);
     const constraint1 = bind(typeofExps(proc.body, extTEnv), (body: TExp) => 
                             checkCompatibleType(body, proc.returnTE, proc));
     return bind(constraint1, _ => makeOk(makeProcTExp(argsTEs, proc.returnTE)));
 };
+
+
+const typeOfPredProc = (proc: ProcExp, tenv: TEnv) : Result<TExp> => {
+    if (proc.args.length != 1)
+        return makeFailure("Error: type predicate need to accept only 1 argument!");
+
+    const argsTEs:TExp[] = proc.args.map((vd : VarDecl) => vd.texp);
+    const extTEnv:ExtendTEnv = makeExtendTEnv(proc.args.map((vd:VarDecl) => vd.var), argsTEs, tenv)
+    const constraint1 = bind(typeofExps(proc.body, extTEnv), (body: TExp) =>
+        checkCompatibleType(body, proc.returnTE, proc));
+    return bind(constraint1, _ => makeOk(makeProcTExp(argsTEs, proc.returnTE)));
+}
 
 // Purpose: compute the type of an app-exp
 // Typing rule:

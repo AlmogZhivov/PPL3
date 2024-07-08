@@ -557,7 +557,7 @@ const parseProcTExp = (texps: Sexp[]): Result<ProcTExp | PredTExp> => {
            (pos === texps.length - 1) ? makeFailure(`No return type in proc texp - ${format(texps)}`) :
            (texps.slice(pos + 1).indexOf('->') > -1) ? makeFailure(`Only one -> allowed in a procexp - ${format(texps)}`) :
            bind(parseTupleTExp(texps.slice(0, pos)), (args: TExp[]) =>
-               mapv(parseTExp(texps[pos + 1]), (returnTE: TExp) =>
+               mapv(parseTExp((pos + 2 === texps.length) ? texps[pos + 1] : texps.slice(pos+1)), (returnTE: TExp) =>
                     makeProcTExp(args, returnTE)))
 };
 
