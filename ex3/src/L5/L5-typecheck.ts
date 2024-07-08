@@ -191,14 +191,15 @@ export const typeofProc = (proc: ProcExp, tenv: TEnv): Result<TExp> => {
 };
 
 
-const typeOfPredProc = (proc: ProcExp, tenv: TEnv) : Result<TExp> => {
-    if (proc.args.length != 1)
-        return makeFailure("Error: type predicate need to accept only 1 argument!");
 
-    const argsTEs:TExp[] = proc.args.map((vd : VarDecl) => vd.texp);
-    const extTEnv:ExtendTEnv = makeExtendTEnv(proc.args.map((vd:VarDecl) => vd.var), argsTEs, tenv)
-    const constraint1 = bind(typeofExps(proc.body, extTEnv), (body: TExp) =>
-        checkCompatibleType(body, proc.returnTE, proc));
+export const typeOfPredProc = (proc: ProcExp, tenv: TEnv): Result<TExp> => {
+    if (proc.args.length != 1)
+        return makeFailure("type predicate must take only 1 argument! got ${proc.args.length}")
+
+    const argsTEs = map((vd) => vd.texp, proc.args);
+    const extTEnv = makeExtendTEnv(map((vd) => vd.var, proc.args), argsTEs, tenv);
+    const constraint1 = bind(typeofExps(proc.body, extTEnv), (body: TExp) => 
+                            isBoolExp(body) ? makeOk(true) : bind(unparseTExp(body), (body: string) => makeFailure("Type of body must be bool for type predicate! got type: ${body}))")));
     return bind(constraint1, _ => makeOk(makeProcTExp(argsTEs, proc.returnTE)));
 }
 
